@@ -1,0 +1,114 @@
+# Required Libraries for Jupyter Notebook
+!pip install qiskit --upgrade
+!pip install qiskit-aer
+!pip install pylatexenc
+# Import necessary libraries
+from qiskit import QuantumCircuit, transpile
+from qiskit_aer import AerSimulator
+from qiskit.visualization import plot_histogram
+import matplotlib.pyplot as plt
+from IPython.display import display
+
+#main code:
+# For the notebook
+#%matplotlib inline
+
+
+def char_to_bin(char_str):
+    return ''.join(format(ord(c), '08b') for c in char_str)
+
+def bin_to_char(bin_str):
+    chars = [chr(int(bin_str[i:i+8], 2)) for i in range(0, len(bin_str), 8)]
+    return ''.join(chars)
+
+# Main Function
+def vigenere_shift_quantum(key, message):
+    key_bin = char_to_bin(key)
+    message_bin = char_to_bin(message)
+
+    if not all(c in '01' for c in key_bin + message_bin):
+        raise ValueError("Key and message must be binary strings")
+
+    n = len(message_bin)
+    extended_key = (key_bin * (n // len(key_bin) + 1))[:n]
+
+    print(f"Character key: {key}")
+    print(f"Character message: {message}")
+    print(f"Binary key: {key_bin}")
+    print(f"Binary message: {message_bin}")
+    print(f"Extended key: {extended_key}")
+
+    qc = QuantumCircuit(n, n)
+
+    # Encoding
+    print("Quantum circuit initialization:")
+    print(qc.draw())
+
+    for i in range(n):
+        if message_bin[i] == '1':
+            qc.x(i)
+            print(f"Applied X gate to qubit {i} (message bit is 1)")
+
+    print("Quantum circuit after encoding:")
+    print(qc.draw())
+
+    # apply shift
+    for i in range(n):
+        if extended_key[i] == '1':
+            qc.x(i)
+            print(f"Applied X gate to qubit {i} (key bit is 1)")
+
+    print("Quantum circuit after applying the shift:")
+    print(qc.draw())
+
+    # Decoding
+    for i in range(n):
+        if extended_key[i] == '1':
+            qc.x(i)
+            print(f"Applied X gate to qubit {i} (key bit is 1) for decoding")
+
+    print("Quantum circuit after decoding:")
+    print(qc.draw())
+
+    qc.measure(range(n), range(n))
+
+    return qc
+
+# Function to reverse the measurement results
+def reverse_measurement_results(results):
+    reversed_results = {}
+    for key, value in results.items():
+        reversed_key = key[::-1]
+        reversed_results[reversed_key] = value
+    return reversed_results
+
+# Run
+key = 'm4U'
+message = 'He11o'
+qc = vigenere_shift_quantum(key, message)
+
+# AerSimulator with matrix_product_state method
+simulator = AerSimulator(method='matrix_product_state')
+compiled_circuit = transpile(qc, simulator)
+result = simulator.run(compiled_circuit, shots=1).result()
+counts = result.get_counts()
+
+# Reverse the  results
+reversed_counts = reverse_measurement_results(counts)
+
+# Decoding
+shifted_num_message = list(reversed_counts.keys())[0]
+print(f"original message after decoding: {shifted_num_message}")
+
+# Convert  numeric to characters
+shifted_message = ''.join(
+    bin_to_char(shifted_num_message[i:i+8]) for i in range(0, len(shifted_num_message), 8)
+)
+
+
+display(qc.draw(output='mpl'))
+
+histogram = plot_histogram(reversed_counts)
+display(histogram)
+
+print(f"original message after decoding: {shifted_message}")
